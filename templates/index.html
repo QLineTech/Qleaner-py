@@ -1,759 +1,434 @@
+
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Q-Cleaner - macOS System Cleaner & Monitor</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <title>Q-Cleaner - macOS Cache Cleaner</title>
     <style>
         :root {
-            --bg-primary: #0a0e14;
-            --bg-secondary: #12171e;
-            --bg-tertiary: #1a2028;
-            --bg-hover: #242d38;
-            --text-primary: #e6edf3;
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-hover: #30363d;
+            --text-primary: #f0f6fc;
             --text-secondary: #8b949e;
             --text-muted: #6e7681;
-            --border-color: #2d3640;
+            --border-color: #30363d;
             --accent: #58a6ff;
             --accent-hover: #79b8ff;
             --success: #3fb950;
             --warning: #d29922;
             --danger: #f85149;
-            --purple: #a371f7;
-            --pink: #db61a2;
-            --cyan: #39c5cf;
-            --orange: #f0883e;
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
-
+        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            line-height: 1.6;
         }
-
-        /* Main Layout */
-        .app-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            max-width: 1400px;
+        
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 16px;
-            width: 100%;
+            padding: 20px;
         }
-
+        
         /* Header */
         .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 24px;
-            background: linear-gradient(135deg, rgba(88, 166, 255, 0.1), rgba(163, 113, 247, 0.1));
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            margin-bottom: 16px;
+            text-align: center;
+            padding: 40px 20px;
+            background: var(--gradient-1);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
         }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
+        
         .header h1 {
-            font-size: 1.5rem;
+            font-size: 2.5rem;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--accent), var(--purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
-
-        .header-badge {
-            background: var(--success);
-            color: #000;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: 700;
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
         }
-
-        /* Tabs */
-        .tabs-container {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            background: var(--bg-secondary);
-            padding: 6px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-        }
-
-        .tab {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px 16px;
-            background: transparent;
-            border: none;
-            border-radius: 8px;
-            color: var(--text-secondary);
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .tab:hover {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-        }
-
-        .tab.active {
-            background: var(--accent);
-            color: white;
-            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
-        }
-
-        .tab .icon {
-            font-size: 16px;
-        }
-
-        .tab .badge {
-            background: var(--bg-hover);
-            padding: 2px 6px;
-            border-radius: 10px;
-            font-size: 10px;
-            margin-left: 4px;
-        }
-
-        .tab.active .badge {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Tab Content */
-        .tab-content {
-            display: none;
-            flex: 1;
-            overflow: auto;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Cleaner Tab */
-        .cleaner-header {
+        
+        /* Controls */
+        .controls {
             display: flex;
             gap: 12px;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
             align-items: center;
         }
-
+        
         .btn {
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
-
+        
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--purple));
+            background: var(--accent);
             color: white;
         }
-
+        
         .btn-primary:hover {
+            background: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(88, 166, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.4);
         }
-
+        
         .btn-danger {
-            background: linear-gradient(135deg, var(--danger), var(--orange));
+            background: var(--danger);
             color: white;
         }
-
+        
         .btn-danger:hover {
+            filter: brightness(1.1);
             transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(248, 81, 73, 0.4);
         }
-
+        
         .btn-secondary {
             background: var(--bg-tertiary);
             color: var(--text-primary);
             border: 1px solid var(--border-color);
         }
-
+        
         .btn-secondary:hover {
             background: var(--bg-hover);
         }
-
+        
         .btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none !important;
         }
-
-        .stats-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
+        
+        /* Summary */
+        .summary {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
         }
-
-        .stat-card {
+        
+        .summary-card {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+            min-width: 200px;
         }
-
-        .stat-card .label {
-            font-size: 11px;
-            color: var(--text-muted);
+        
+        .summary-card h3 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 4px;
         }
-
-        .stat-card .value {
-            font-size: 1.8rem;
+        
+        .summary-card .value {
+            font-size: 2rem;
             font-weight: 700;
         }
-
-        .stat-card .value.count {
-            color: var(--accent);
-        }
-
-        .stat-card .value.size {
-            color: var(--danger);
-        }
-
-        .stat-card .value.free {
-            color: var(--success);
-        }
-
+        
+        .summary-card .value.size { color: var(--danger); }
+        .summary-card .value.count { color: var(--accent); }
+        
+        /* Categories */
         .category-filters {
             display: flex;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin-bottom: 20px;
             flex-wrap: wrap;
         }
-
-        .cat-btn {
-            padding: 6px 12px;
+        
+        .category-btn {
+            padding: 8px 16px;
             background: var(--bg-tertiary);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: 20px;
             color: var(--text-secondary);
-            font-size: 12px;
             cursor: pointer;
+            font-size: 13px;
             transition: all 0.2s;
         }
-
-        .cat-btn:hover,
-        .cat-btn.active {
+        
+        .category-btn:hover, .category-btn.active {
             background: var(--accent);
             color: white;
             border-color: var(--accent);
         }
-
+        
+        /* Location Cards */
         .locations-grid {
             display: grid;
-            gap: 10px;
+            gap: 16px;
         }
-
+        
         .location-card {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 14px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-
-        .location-card:hover {
-            border-color: var(--accent);
-            transform: translateX(4px);
-        }
-
-        .location-card.selected {
-            border-color: var(--success);
-            background: rgba(63, 185, 80, 0.08);
-        }
-
-        .loc-checkbox {
-            width: 20px;
-            height: 20px;
-            border: 2px solid var(--border-color);
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            flex-shrink: 0;
-            font-size: 12px;
-            color: transparent;
-        }
-
-        .location-card.selected .loc-checkbox {
-            background: var(--success);
-            border-color: var(--success);
-            color: white;
-        }
-
-        .loc-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .loc-name {
-            font-weight: 600;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 2px;
-        }
-
-        .loc-desc {
-            color: var(--text-secondary);
-            font-size: 12px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .risk-badge {
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
-        }
-
-        .risk-low {
-            background: rgba(63, 185, 80, 0.2);
-            color: var(--success);
-        }
-
-        .risk-medium {
-            background: rgba(210, 153, 34, 0.2);
-            color: var(--warning);
-        }
-
-        .risk-high {
-            background: rgba(248, 81, 73, 0.2);
-            color: var(--danger);
-        }
-
-        .loc-size {
-            font-weight: 700;
-            font-size: 16px;
-            white-space: nowrap;
-        }
-
-        .loc-size.small {
-            color: var(--text-muted);
-            font-size: 14px;
-        }
-
-        .loc-size.medium {
-            color: var(--success);
-        }
-
-        .loc-size.large {
-            color: var(--warning);
-        }
-
-        .loc-size.huge {
-            color: var(--danger);
-        }
-
-        /* Monitor Tab */
-        .monitor-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .monitor-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 20px;
-        }
-
-        .monitor-card h3 {
-            font-size: 12px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .monitor-card .value {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .monitor-card .value.cpu {
-            color: var(--accent);
-        }
-
-        .monitor-card .value.mem {
-            color: var(--purple);
-        }
-
-        .monitor-card .value.disk {
-            color: var(--warning);
-        }
-
-        .monitor-card .value.net {
-            color: var(--cyan);
-            font-size: 1.5rem;
-        }
-
-        .progress-ring {
-            height: 8px;
-            background: var(--bg-tertiary);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .progress-ring-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-
-        .progress-ring-fill.cpu {
-            background: linear-gradient(90deg, var(--accent), var(--cyan));
-        }
-
-        .progress-ring-fill.mem {
-            background: linear-gradient(90deg, var(--purple), var(--pink));
-        }
-
-        .progress-ring-fill.disk {
-            background: linear-gradient(90deg, var(--warning), var(--danger));
-        }
-
-        .monitor-detail {
-            color: var(--text-secondary);
-            font-size: 12px;
-        }
-
-        /* Processes Tab */
-        .process-section {
-            margin-bottom: 20px;
-        }
-
-        .process-section h3 {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .process-list {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .process-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 14px;
-            border-bottom: 1px solid var(--border-color);
-            gap: 10px;
-        }
-
-        .process-item:last-child {
-            border-bottom: none;
-        }
-
-        .process-item:hover {
-            background: var(--bg-tertiary);
-        }
-
-        .process-rank {
-            width: 22px;
-            height: 22px;
-            background: var(--bg-tertiary);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .process-name {
-            flex: 1;
-            font-size: 13px;
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .process-usage {
-            font-weight: 600;
-            font-size: 13px;
-            min-width: 70px;
-            text-align: right;
-        }
-
-        .process-usage.high {
-            color: var(--danger);
-        }
-
-        .process-usage.medium {
-            color: var(--warning);
-        }
-
-        .process-usage.low {
-            color: var(--success);
-        }
-
-        /* Charts Tab */
-        .charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 16px;
-        }
-
-        .chart-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .chart-card h3 {
-            font-size: 12px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 16px;
-        }
-
-        .chart-container {
-            height: 180px;
+            transition: all 0.2s ease;
             position: relative;
         }
-
-        /* Console */
-        .console {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            margin-top: 16px;
-            overflow: hidden;
-            transition: height 0.3s ease;
+        
+        .location-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-
-        .console-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 14px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
+        
+        .location-card.selected {
+            border-color: var(--success);
+            background: rgba(63, 185, 80, 0.05);
         }
-
-        .console-header h4 {
-            font-size: 12px;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .console-header .count {
-            background: var(--accent);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 10px;
-            font-size: 10px;
-        }
-
-        .console-toggle {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .console-content {
-            height: 150px;
-            overflow-y: auto;
-            padding: 8px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 11px;
-        }
-
-        .console.collapsed .console-content {
-            display: none;
-        }
-
-        .log-entry {
+        
+        .location-header {
             display: flex;
             align-items: flex-start;
-            gap: 8px;
-            padding: 4px 6px;
-            border-radius: 4px;
-            margin-bottom: 2px;
-            animation: slideIn 0.15s ease;
+            gap: 12px;
+            margin-bottom: 12px;
         }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(-8px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
+        
+        .checkbox-wrapper {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
         }
-
-        .log-entry:hover {
+        
+        .checkbox-wrapper input {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            opacity: 0;
+            position: absolute;
+        }
+        
+        .checkbox-custom {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
             background: var(--bg-tertiary);
         }
-
-        .log-time {
-            color: var(--text-muted);
-            font-size: 10px;
-            min-width: 60px;
-            flex-shrink: 0;
+        
+        .checkbox-wrapper input:checked + .checkbox-custom {
+            background: var(--success);
+            border-color: var(--success);
         }
-
-        .log-icon {
-            width: 14px;
-            text-align: center;
-            flex-shrink: 0;
+        
+        .checkbox-custom::after {
+            content: '✓';
+            color: white;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.2s;
         }
-
-        .log-msg {
-            color: var(--text-secondary);
+        
+        .checkbox-wrapper input:checked + .checkbox-custom::after {
+            opacity: 1;
+        }
+        
+        .location-info {
             flex: 1;
-            word-break: break-word;
         }
-
-        .log-size {
+        
+        .location-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .risk-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .risk-low { background: rgba(63, 185, 80, 0.2); color: var(--success); }
+        .risk-medium { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+        .risk-high { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+        
+        .location-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .location-path {
             color: var(--text-muted);
-            font-size: 10px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+        
+        .location-size {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--danger);
+            text-align: right;
+            white-space: nowrap;
+        }
+        
+        .location-size.small { color: var(--text-muted); font-size: 1.2rem; }
+        .location-size.medium { color: var(--success); }
+        .location-size.large { color: var(--warning); }
+        .location-size.huge { color: var(--danger); }
+        
+        /* Hint Button & Tooltip */
+        .hint-btn {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.2s;
             flex-shrink: 0;
         }
-
-        .log-entry.info .log-msg {
+        
+        .hint-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+        
+        .hint-panel {
+            display: none;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            animation: slideDown 0.2s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .hint-panel.show {
+            display: block;
+        }
+        
+        .hint-section {
+            margin-bottom: 12px;
+        }
+        
+        .hint-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .hint-section h4 {
+            font-size: 0.75rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+        
+        .hint-section p {
+            font-size: 0.9rem;
             color: var(--text-secondary);
         }
-
-        .log-entry.success .log-msg {
-            color: var(--success);
-        }
-
-        .log-entry.warning .log-msg {
-            color: var(--warning);
-        }
-
-        .log-entry.error .log-msg {
-            color: var(--danger);
-        }
-
-        .log-entry.scan .log-msg {
-            color: var(--accent);
-        }
-
-        .log-entry.found .log-msg {
-            color: var(--cyan);
-        }
-
-        .log-entry.clean .log-msg {
-            color: var(--purple);
-        }
-
-        /* Progress Overlay */
-        .overlay {
+        
+        /* Progress */
+        .progress-overlay {
             position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.85);
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            backdrop-filter: blur(4px);
         }
-
-        .overlay.show {
+        
+        .progress-overlay.show {
             display: flex;
         }
-
-        .overlay-card {
+        
+        .progress-card {
             background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 30px;
+            padding: 40px;
             text-align: center;
             min-width: 300px;
         }
-
+        
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid var(--bg-tertiary);
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--bg-tertiary);
             border-top-color: var(--accent);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 16px;
+            margin: 0 auto 20px;
         }
-
+        
         @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+            to { transform: rotate(360deg); }
         }
-
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        
         /* Toast */
         .toast {
             position: fixed;
@@ -762,529 +437,286 @@
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 14px 20px;
+            padding: 16px 24px;
             display: none;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             box-shadow: var(--shadow);
             z-index: 1001;
+            animation: slideIn 0.3s ease;
         }
-
+        
         .toast.show {
             display: flex;
-            animation: toastIn 0.3s ease;
         }
-
-        @keyframes toastIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
-
-        .toast.success {
-            border-left: 4px solid var(--success);
-        }
-
-        .toast.error {
-            border-left: 4px solid var(--danger);
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 50px 20px;
-            color: var(--text-muted);
-        }
-
-        .empty-state .icon {
-            font-size: 48px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--bg-hover);
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--border-color);
-        }
+        
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
     </style>
 </head>
-
 <body>
-    <div class="app-container">
+    <div class="container">
         <div class="header">
-            <div class="header-left">
-                <span style="font-size:28px">🧹</span>
-                <h1>Q-Cleaner</h1>
-                <span class="header-badge">PRO</span>
-            </div>
-            <div style="color:var(--text-muted);font-size:12px">macOS System Cleaner & Monitor</div>
+            <h1>🧹 Q-Cleaner</h1>
+            <p>macOS Cache & Temp File Cleaner</p>
         </div>
-
-        <div class="tabs-container">
-            <button class="tab active" onclick="showTab('cleaner')">
-                <span class="icon">🗑️</span> Cleaner
-                <span class="badge" id="cleanerBadge">0</span>
+        
+        <div class="controls">
+            <button class="btn btn-primary" id="scanBtn" onclick="startScan()">
+                <span>🔍</span> Scan System
             </button>
-            <button class="tab" onclick="showTab('monitor')">
-                <span class="icon">📊</span> System Monitor
-            </button>
-            <button class="tab" onclick="showTab('processes')">
-                <span class="icon">⚡</span> Processes
-            </button>
-            <button class="tab" onclick="showTab('charts')">
-                <span class="icon">📈</span> Statistics
+            <button class="btn btn-secondary" onclick="selectAll()">Select All</button>
+            <button class="btn btn-secondary" onclick="selectNone()">Select None</button>
+            <button class="btn btn-danger" id="cleanBtn" onclick="cleanSelected()" disabled>
+                <span>🗑️</span> Clean Selected
             </button>
         </div>
-
-        <!-- Cleaner Tab -->
-        <div id="tab-cleaner" class="tab-content active">
-            <div class="cleaner-header">
-                <button class="btn btn-primary" id="scanBtn" onclick="startScan()">🔍 Scan System</button>
-                <button class="btn btn-secondary" onclick="selectAll()">Select All</button>
-                <button class="btn btn-secondary" onclick="selectNone()">Deselect All</button>
-                <button class="btn btn-danger" id="cleanBtn" onclick="cleanSelected()" disabled>🗑️ Clean
-                    Selected</button>
+        
+        <div class="summary">
+            <div class="summary-card">
+                <h3>Selected Items</h3>
+                <div class="value count" id="selectedCount">0</div>
             </div>
-
-            <div class="stats-row">
-                <div class="stat-card">
-                    <div class="label">Selected Items</div>
-                    <div class="value count" id="selectedCount">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Space to Free</div>
-                    <div class="value size" id="totalSize">0 B</div>
-                </div>
-                <div class="stat-card">
-                    <div class="label">Free on Disk</div>
-                    <div class="value free" id="freeSpace">--</div>
-                </div>
-            </div>
-
-            <div class="category-filters" id="categoryFilters"></div>
-            <div class="locations-grid" id="locationsGrid">
-                <div class="empty-state">
-                    <div class="icon">🔍</div>
-                    <h3>Click "Scan System" to find cache files</h3>
-                </div>
+            <div class="summary-card">
+                <h3>Space to Reclaim</h3>
+                <div class="value size" id="totalSize">0 B</div>
             </div>
         </div>
-
-        <!-- Monitor Tab -->
-        <div id="tab-monitor" class="tab-content">
-            <div class="monitor-grid">
-                <div class="monitor-card">
-                    <h3>💻 CPU Usage</h3>
-                    <div class="value cpu" id="cpuValue">0%</div>
-                    <div class="progress-ring">
-                        <div class="progress-ring-fill cpu" id="cpuBar" style="width:0%"></div>
-                    </div>
-                    <div class="monitor-detail" id="cpuDetail">-- cores</div>
-                </div>
-                <div class="monitor-card">
-                    <h3>🧠 Memory</h3>
-                    <div class="value mem" id="memValue">0%</div>
-                    <div class="progress-ring">
-                        <div class="progress-ring-fill mem" id="memBar" style="width:0%"></div>
-                    </div>
-                    <div class="monitor-detail" id="memDetail">-- used of --</div>
-                </div>
-                <div class="monitor-card">
-                    <h3>💾 Disk</h3>
-                    <div class="value disk" id="diskValue">0%</div>
-                    <div class="progress-ring">
-                        <div class="progress-ring-fill disk" id="diskBar" style="width:0%"></div>
-                    </div>
-                    <div class="monitor-detail" id="diskDetail">-- free of --</div>
-                </div>
-                <div class="monitor-card">
-                    <h3>🌐 Network</h3>
-                    <div class="value net" id="netValue">↑ 0/s ↓ 0/s</div>
-                    <div class="monitor-detail">Total: <span id="netTotal">↑ 0 B ↓ 0 B</span></div>
-                </div>
-                <div class="monitor-card">
-                    <h3>⏱️ Uptime</h3>
-                    <div class="value" style="font-size:1.8rem" id="uptimeValue">--</div>
-                    <div class="monitor-detail">Since last reboot</div>
-                </div>
+        
+        <div class="category-filters" id="categoryFilters"></div>
+        
+        <div class="locations-grid" id="locationsGrid">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+                <h3>Click "Scan System" to start</h3>
+                <p>We'll find all cache and temporary files on your Mac</p>
             </div>
-        </div>
-
-        <!-- Processes Tab -->
-        <div id="tab-processes" class="tab-content">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div class="process-section">
-                    <h3>🔥 Top CPU Consumers</h3>
-                    <div class="process-list" id="cpuProcessList">
-                        <div class="empty-state" style="padding:20px">Loading...</div>
-                    </div>
-                </div>
-                <div class="process-section">
-                    <h3>🧠 Top Memory Consumers</h3>
-                    <div class="process-list" id="memProcessList">
-                        <div class="empty-state" style="padding:20px">Loading...</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Charts Tab -->
-        <div id="tab-charts" class="tab-content">
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>💻 CPU History</h3>
-                    <div class="chart-container"><canvas id="cpuChart"></canvas></div>
-                </div>
-                <div class="chart-card">
-                    <h3>🧠 Memory History</h3>
-                    <div class="chart-container"><canvas id="memChart"></canvas></div>
-                </div>
-                <div class="chart-card">
-                    <h3>🌐 Network In</h3>
-                    <div class="chart-container"><canvas id="netInChart"></canvas></div>
-                </div>
-                <div class="chart-card">
-                    <h3>🌐 Network Out</h3>
-                    <div class="chart-container"><canvas id="netOutChart"></canvas></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Console -->
-        <div class="console" id="console">
-            <div class="console-header" onclick="toggleConsole()">
-                <h4>📋 Event Console <span class="count" id="logCount">0</span></h4>
-                <button class="console-toggle" id="consoleToggle">▼</button>
-            </div>
-            <div class="console-content" id="consoleContent"></div>
         </div>
     </div>
-
-    <div class="overlay" id="overlay">
-        <div class="overlay-card">
+    
+    <div class="progress-overlay" id="progressOverlay">
+        <div class="progress-card">
             <div class="spinner"></div>
-            <h3 id="overlayTitle">Processing...</h3>
-            <p style="color:var(--text-secondary);font-size:13px" id="overlaySub"></p>
+            <h3 id="progressText">Scanning...</h3>
+            <p id="progressSub">Looking for cache files</p>
         </div>
     </div>
-
-    <div class="toast" id="toast"><span id="toastIcon">✓</span><span id="toastMsg"></span></div>
+    
+    <div class="toast" id="toast">
+        <span id="toastIcon">✓</span>
+        <span id="toastMessage"></span>
+    </div>
 
     <script>
-        // State
         let locations = [];
         let activeCategory = 'all';
-        let activeTab = 'cleaner';
-        let monitorInterval = null;
-        let lastNetIn = 0, lastNetOut = 0, lastNetTime = Date.now();
-        let cpuChart, memChart, netInChart, netOutChart;
-
-        // Utilities
-        const humanSize = (bytes) => {
-            if (!bytes || bytes < 0) return '0 B';
+        
+        function humanSize(bytes) {
             const units = ['B', 'KB', 'MB', 'GB', 'TB'];
             let i = 0;
-            while (bytes >= 1024 && i < 4) { bytes /= 1024; i++; }
+            while (bytes >= 1024 && i < units.length - 1) {
+                bytes /= 1024;
+                i++;
+            }
             return bytes.toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
-        };
-
-        const humanRate = (bytes) => humanSize(bytes) + '/s';
-
-        const getSizeClass = (bytes) => {
+        }
+        
+        function getSizeClass(bytes) {
             if (bytes > 1073741824) return 'huge';
             if (bytes > 104857600) return 'large';
             if (bytes > 10485760) return 'medium';
             return 'small';
-        };
-
-        const getUsageClass = (pct) => pct >= 80 ? 'high' : pct >= 50 ? 'medium' : 'low';
-
-        const getTime = () => new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-        // Console Logging
-        const log = (msg, type = 'info', size = null) => {
-            const icons = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '❌', scan: '🔍', found: '📁', clean: '🧹', skip: '⏭️' };
-            const content = document.getElementById('consoleContent');
-            const entry = document.createElement('div');
-            entry.className = 'log-entry ' + type;
-            entry.innerHTML = `
-                <span class="log-time">${getTime()}</span>
-                <span class="log-icon">${icons[type] || 'ℹ️'}</span>
-                <span class="log-msg">${msg}</span>
-                ${size ? `<span class="log-size">${humanSize(size)}</span>` : ''}
-            `;
-            content.appendChild(entry);
-            content.scrollTop = content.scrollHeight;
-            const count = content.children.length;
-            document.getElementById('logCount').textContent = count;
-        };
-
-        const toggleConsole = () => {
-            const console = document.getElementById('console');
-            const toggle = document.getElementById('consoleToggle');
-            console.classList.toggle('collapsed');
-            toggle.textContent = console.classList.contains('collapsed') ? '▲' : '▼';
-        };
-
-        // Tab Management
-        const showTab = (tabId) => {
-            activeTab = tabId;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelector(`.tab:has(.icon:first-child)`);
-            event.target.closest('.tab').classList.add('active');
-            document.getElementById('tab-' + tabId).classList.add('active');
-
-            // Start/stop monitoring based on tab
-            if (tabId === 'monitor' || tabId === 'processes' || tabId === 'charts') {
-                startMonitoring();
-            } else {
-                stopMonitoring();
-            }
-
-            log(`Switched to ${tabId} tab`, 'info');
-        };
-
-        // System Monitoring
-        const startMonitoring = () => {
-            if (monitorInterval) return;
-            fetchSystemStats();
-            fetchProcesses();
-            fetchHistory();
-            monitorInterval = setInterval(() => {
-                fetchSystemStats();
-                if (activeTab === 'processes') fetchProcesses();
-                if (activeTab === 'charts') fetchHistory();
-            }, 2000);
-            log('Started system monitoring', 'info');
-        };
-
-        const stopMonitoring = () => {
-            if (monitorInterval) {
-                clearInterval(monitorInterval);
-                monitorInterval = null;
-            }
-        };
-
-        const fetchSystemStats = async () => {
-            try {
-                const res = await fetch('/api/system/stats');
-                const s = await res.json();
-
-                document.getElementById('cpuValue').textContent = s.cpu_percent.toFixed(1) + '%';
-                document.getElementById('cpuBar').style.width = s.cpu_percent + '%';
-                document.getElementById('cpuDetail').textContent = (s.cpu_count || '--') + ' cores';
-
-                document.getElementById('memValue').textContent = s.memory.percent.toFixed(1) + '%';
-                document.getElementById('memBar').style.width = s.memory.percent + '%';
-                document.getElementById('memDetail').textContent = `${s.memory.used_human} / ${s.memory.total_human}`;
-
-                document.getElementById('diskValue').textContent = s.disk.percent + '%';
-                document.getElementById('diskBar').style.width = s.disk.percent + '%';
-                document.getElementById('diskDetail').textContent = `${s.disk.free_human} free of ${s.disk.total_human}`;
-                document.getElementById('freeSpace').textContent = s.disk.free_human;
-
-                const now = Date.now();
-                const dt = (now - lastNetTime) / 1000;
-                if (lastNetIn > 0 && dt > 0) {
-                    const rateIn = Math.max(0, (s.network.bytes_recv - lastNetIn) / dt);
-                    const rateOut = Math.max(0, (s.network.bytes_sent - lastNetOut) / dt);
-                    document.getElementById('netValue').textContent = `↑ ${humanRate(rateOut)} ↓ ${humanRate(rateIn)}`;
-                }
-                lastNetIn = s.network.bytes_recv;
-                lastNetOut = s.network.bytes_sent;
-                lastNetTime = now;
-                document.getElementById('netTotal').textContent = `↑ ${s.network.sent_human} ↓ ${s.network.recv_human}`;
-                document.getElementById('uptimeValue').textContent = s.uptime;
-            } catch (e) { }
-        };
-
-        const fetchProcesses = async () => {
-            try {
-                const res = await fetch('/api/system/processes');
-                const data = await res.json();
-                renderProcessList('cpuProcessList', data.by_cpu, 'cpu_percent', '%');
-                renderProcessList('memProcessList', data.by_memory, 'memory_percent', '%', 'memory_human');
-            } catch (e) { }
-        };
-
-        const renderProcessList = (id, procs, key, suffix, extra = null) => {
-            const el = document.getElementById(id);
-            if (!procs?.length) { el.innerHTML = '<div class="empty-state" style="padding:20px">No data</div>'; return; }
-            el.innerHTML = procs.slice(0, 8).map((p, i) => `
-                <div class="process-item">
-                    <div class="process-rank">${i + 1}</div>
-                    <div class="process-name">${p.name}</div>
-                    <div class="process-usage ${getUsageClass(p[key])}">${p[key].toFixed(1)}${suffix}${extra ? ' (' + p[extra] + ')' : ''}</div>
-                </div>
-            `).join('');
-        };
-
-        const fetchHistory = async () => {
-            try {
-                const res = await fetch('/api/system/history');
-                const d = await res.json();
-                if (cpuChart) { cpuChart.data.labels = d.labels; cpuChart.data.datasets[0].data = d.cpu; cpuChart.update('none'); }
-                if (memChart) { memChart.data.labels = d.labels; memChart.data.datasets[0].data = d.memory; memChart.update('none'); }
-                if (netInChart && d.network_in) { netInChart.data.labels = d.labels.slice(1); netInChart.data.datasets[0].data = d.network_in; netInChart.update('none'); }
-                if (netOutChart && d.network_out) { netOutChart.data.labels = d.labels.slice(1); netOutChart.data.datasets[0].data = d.network_out; netOutChart.update('none'); }
-            } catch (e) { }
-        };
-
-        const initCharts = () => {
-            const opts = {
-                responsive: true, maintainAspectRatio: false, animation: { duration: 200 },
-                scales: { y: { beginAtZero: true, max: 100, grid: { color: '#2d3640' }, ticks: { color: '#8b949e' } }, x: { display: false } },
-                plugins: { legend: { display: false } }, elements: { point: { radius: 0 }, line: { tension: 0.3, borderWidth: 2 } }
-            };
-            const netOpts = { ...opts, scales: { ...opts.scales, y: { beginAtZero: true, grid: { color: '#2d3640' }, ticks: { color: '#8b949e', callback: v => humanSize(v) } } } };
-
-            cpuChart = new Chart(document.getElementById('cpuChart'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)', fill: true }] }, options: opts });
-            memChart = new Chart(document.getElementById('memChart'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#a371f7', backgroundColor: 'rgba(163,113,247,0.1)', fill: true }] }, options: opts });
-            netInChart = new Chart(document.getElementById('netInChart'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#39c5cf', backgroundColor: 'rgba(57,197,207,0.1)', fill: true }] }, options: netOpts });
-            netOutChart = new Chart(document.getElementById('netOutChart'), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,0.1)', fill: true }] }, options: netOpts });
-        };
-
-        // Cleaner Functions
-        const showOverlay = (title, sub = '') => { document.getElementById('overlayTitle').textContent = title; document.getElementById('overlaySub').textContent = sub; document.getElementById('overlay').classList.add('show'); };
-        const hideOverlay = () => document.getElementById('overlay').classList.remove('show');
-        const showToast = (msg, type = 'success') => { const t = document.getElementById('toast'); document.getElementById('toastIcon').textContent = type === 'success' ? '✓' : '✗'; document.getElementById('toastMsg').textContent = msg; t.className = 'toast show ' + type; setTimeout(() => t.classList.remove('show'), 3000); };
-
-        const startScan = async () => {
+        }
+        
+        function showProgress(text, sub) {
+            document.getElementById('progressText').textContent = text;
+            document.getElementById('progressSub').textContent = sub;
+            document.getElementById('progressOverlay').classList.add('show');
+        }
+        
+        function hideProgress() {
+            document.getElementById('progressOverlay').classList.remove('show');
+        }
+        
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+            
+            icon.textContent = type === 'success' ? '✓' : '✗';
+            msg.textContent = message;
+            toast.className = 'toast show ' + type;
+            
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        async function startScan() {
+            showProgress('Scanning...', 'Looking for cache files');
             document.getElementById('scanBtn').disabled = true;
-            log('Starting system scan...', 'scan');
+            
             await fetch('/api/scan', { method: 'POST' });
-
-            let lastCount = 0, lastLoc = '';
+            
+            // Poll for completion
             const poll = async () => {
                 const res = await fetch('/api/scan/status');
                 const data = await res.json();
-
-                if (data.current_location && data.current_location !== lastLoc) {
-                    log(`Checking: ${data.current_location}`, 'scan');
-                    lastLoc = data.current_location;
-                }
-
-                if (data.count > lastCount) {
-                    const locsRes = await fetch('/api/locations');
-                    const locs = await locsRes.json();
-                    for (let i = lastCount; i < locs.length; i++) {
-                        log(`Found: ${locs[i].name}`, 'found', locs[i].size);
-                    }
-                    lastCount = data.count;
-                }
-
+                
                 if (data.complete) {
                     await loadLocations();
-                    const total = locations.reduce((s, l) => s + l.size, 0);
-                    log(`Scan complete! ${locations.length} locations, ${humanSize(total)} total`, 'success');
+                    hideProgress();
                     document.getElementById('scanBtn').disabled = false;
-                    showToast(`Found ${locations.length} cache locations`);
+                    showToast(`Found ${locations.length} locations with cached data`);
                 } else {
-                    setTimeout(poll, 150);
+                    setTimeout(poll, 500);
                 }
             };
             poll();
-        };
-
-        const loadLocations = async () => {
+        }
+        
+        async function loadLocations() {
             const res = await fetch('/api/locations');
             locations = await res.json();
             renderCategories();
             renderLocations();
             updateSummary();
-        };
-
-        const renderCategories = () => {
-            const cats = ['all', ...new Set(locations.map(l => l.category))];
-            document.getElementById('categoryFilters').innerHTML = cats.map(c =>
-                `<button class="cat-btn ${c === activeCategory ? 'active' : ''}" onclick="filterCategory('${c}')">${c === 'all' ? 'All' : c}</button>`
-            ).join('');
-        };
-
-        const filterCategory = (cat) => { activeCategory = cat; renderCategories(); renderLocations(); };
-
-        const renderLocations = () => {
-            const filtered = activeCategory === 'all' ? locations : locations.filter(l => l.category === activeCategory);
-            const grid = document.getElementById('locationsGrid');
-            if (!filtered.length) { grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><h3>No items found</h3></div>'; return; }
-            grid.innerHTML = filtered.map(l => `
-                <div class="location-card ${l.selected ? 'selected' : ''}" onclick="toggleLocation('${l.id}')">
-                    <div class="loc-checkbox">✓</div>
-                    <div class="loc-info">
-                        <div class="loc-name">${l.name} <span class="risk-badge risk-${l.risk}">${l.risk}</span></div>
-                        <div class="loc-desc">${l.description}</div>
+        }
+        
+        function renderCategories() {
+            const categories = ['all', ...new Set(locations.map(l => l.category))];
+            const container = document.getElementById('categoryFilters');
+            
+            container.innerHTML = categories.map(cat => `
+                <button class="category-btn ${cat === activeCategory ? 'active' : ''}" 
+                        onclick="filterCategory('${cat}')">
+                    ${cat === 'all' ? 'All' : cat}
+                </button>
+            `).join('');
+        }
+        
+        function filterCategory(category) {
+            activeCategory = category;
+            renderCategories();
+            renderLocations();
+        }
+        
+        function renderLocations() {
+            const container = document.getElementById('locationsGrid');
+            const filtered = activeCategory === 'all' 
+                ? locations 
+                : locations.filter(l => l.category === activeCategory);
+            
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No items found</h3>
+                        <p>Try a different category or scan again</p>
                     </div>
-                    <div class="loc-size ${getSizeClass(l.size)}">${l.size_human}</div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = filtered.map((loc, i) => `
+                <div class="location-card ${loc.selected ? 'selected' : ''}" data-id="${loc.id}">
+                    <div class="location-header">
+                        <label class="checkbox-wrapper">
+                            <input type="checkbox" ${loc.selected ? 'checked' : ''} 
+                                   onchange="toggleLocation('${loc.id}')">
+                            <div class="checkbox-custom"></div>
+                        </label>
+                        <div class="location-info">
+                            <div class="location-name">
+                                ${loc.name}
+                                <span class="risk-badge risk-${loc.risk}">${loc.risk}</span>
+                                <button class="hint-btn" onclick="toggleHint('${loc.id}')">?</button>
+                            </div>
+                            <div class="location-desc">${loc.description}</div>
+                            <div class="location-path">${loc.path.replace('${location.pathname}', '~')}</div>
+                        </div>
+                        <div class="location-size ${getSizeClass(loc.size)}">${loc.size_human}</div>
+                    </div>
+                    <div class="hint-panel" id="hint-${loc.id}">
+                        <div class="hint-section">
+                            <h4>📖 What is this?</h4>
+                            <p>${loc.hint}</p>
+                        </div>
+                        <div class="hint-section">
+                            <h4>⚡ Impact of Cleaning</h4>
+                            <p>${loc.impact}</p>
+                        </div>
+                    </div>
                 </div>
             `).join('');
-        };
-
-        const toggleLocation = (id) => { const l = locations.find(x => x.id === id); if (l) { l.selected = !l.selected; renderLocations(); updateSummary(); } };
-        const selectAll = () => { locations.forEach(l => l.selected = true); renderLocations(); updateSummary(); log('Selected all items', 'info'); };
-        const selectNone = () => { locations.forEach(l => l.selected = false); renderLocations(); updateSummary(); log('Deselected all items', 'info'); };
-
-        const updateSummary = () => {
-            const sel = locations.filter(l => l.selected);
-            const bytes = sel.reduce((s, l) => s + l.size, 0);
-            document.getElementById('selectedCount').textContent = sel.length;
-            document.getElementById('totalSize').textContent = humanSize(bytes);
-            document.getElementById('cleanBtn').disabled = sel.length === 0;
-            document.getElementById('cleanerBadge').textContent = sel.length;
-        };
-
-        const cleanSelected = async () => {
-            const sel = locations.filter(l => l.selected);
-            if (!sel.length) return;
-            if (!confirm(`Delete ${sel.length} cache locations (${humanSize(sel.reduce((s, l) => s + l.size, 0))})?`)) return;
-
-            showOverlay('Cleaning...', 'Removing cache files');
-            log(`Starting cleanup of ${sel.length} locations...`, 'clean');
-
-            let success = 0, freed = 0;
-            for (const loc of sel) {
-                log(`Cleaning: ${loc.name}...`, 'clean', loc.size);
-                try {
-                    const res = await fetch('/api/clean', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [loc.id] }) });
-                    const data = await res.json();
-                    if (data.results[0]?.success) { success++; freed += loc.size; log(`✓ Cleaned: ${loc.name}`, 'success', loc.size); }
-                    else log(`✗ Failed: ${loc.name} - ${data.results[0]?.message}`, 'error');
-                } catch (e) { log(`✗ Error: ${loc.name}`, 'error'); }
+        }
+        
+        function toggleHint(id) {
+            const panel = document.getElementById('hint-' + id);
+            panel.classList.toggle('show');
+        }
+        
+        function toggleLocation(id) {
+            const loc = locations.find(l => l.id === id);
+            if (loc) {
+                loc.selected = !loc.selected;
+                renderLocations();
+                updateSummary();
             }
-
-            hideOverlay();
-            log(`Cleanup finished: ${success}/${sel.length} cleaned, ${humanSize(freed)} freed`, success === sel.length ? 'success' : 'warning');
-            showToast(`Cleaned ${success} locations, freed ${humanSize(freed)}`);
+        }
+        
+        function selectAll() {
+            locations.forEach(l => l.selected = true);
+            renderLocations();
+            updateSummary();
+        }
+        
+        function selectNone() {
+            locations.forEach(l => l.selected = false);
+            renderLocations();
+            updateSummary();
+        }
+        
+        function updateSummary() {
+            const selected = locations.filter(l => l.selected);
+            const totalBytes = selected.reduce((sum, l) => sum + l.size, 0);
+            
+            document.getElementById('selectedCount').textContent = selected.length;
+            document.getElementById('totalSize').textContent = humanSize(totalBytes);
+            document.getElementById('cleanBtn').disabled = selected.length === 0;
+        }
+        
+        async function cleanSelected() {
+            const selected = locations.filter(l => l.selected);
+            if (selected.length === 0) return;
+            
+            const totalSize = humanSize(selected.reduce((sum, l) => sum + l.size, 0));
+            
+            if (!confirm(`This will permanently delete ${selected.length} cache locations (${totalSize}).\n\nAre you sure?`)) {
+                return;
+            }
+            
+            showProgress('Cleaning...', 'Removing selected cache files');
+            
+            const res = await fetch('/api/clean', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selected.map(l => l.id) })
+            });
+            
+            const data = await res.json();
+            const successCount = data.results.filter(r => r.success).length;
+            
+            hideProgress();
+            showToast(`Cleaned ${successCount} of ${selected.length} locations`);
+            
+            // Re-scan
             startScan();
-        };
-
-        // Init
-        document.addEventListener('DOMContentLoaded', () => {
-            initCharts();
-            fetchSystemStats();
-            log('Q-Cleaner initialized', 'success');
-        });
+        }
     </script>
 </body>
-
 </html>
