@@ -3,7 +3,8 @@
 # Python gitignore
 __pycache__
 venv
-
+build
+dist
 # macOS gitignore
 .DS_Store
 
