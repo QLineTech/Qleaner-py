@@ -1,0 +1,10 @@
+# Q-Cleaner
+
+# Python gitignore
+__pycache__
+venv
+
+# macOS gitignore
+.DS_Store
+
+*.pyc
