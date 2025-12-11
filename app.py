@@ -15,6 +15,7 @@ from dataclasses import dataclass, asdict
 from typing import List, Dict, Any
 from flask import Flask, render_template, jsonify, request, send_from_directory
 import webbrowser
+import socket
 
 try:
     import psutil
@@ -611,16 +612,24 @@ def get_top_processes():
     return jsonify(processes)
 
 
-def open_browser():
+def open_browser(port):
     time.sleep(1)
-    webbrowser.open('http://127.0.0.1:5050')
+    webbrowser.open(f'http://127.0.0.1:{port}')
 
 
 if __name__ == '__main__':
+    # Find available port
+    port = 5050
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                break
+            port += 1
+
     print("\n" + "=" * 50)
     print("  Q-Cleaner Web Panel")
-    print("  Open http://127.0.0.1:5050 in your browser")
+    print(f"  Open http://127.0.0.1:{port} in your browser")
     print("=" * 50 + "\n")
     
-    threading.Thread(target=open_browser, daemon=True).start()
-    app.run(host='127.0.0.1', port=5050, debug=False)
+    threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+    app.run(host='127.0.0.1', port=port, debug=False)
