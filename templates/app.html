@@ -869,6 +869,150 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Leftover Tab Styles */
+        .leftover-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: all 0.2s;
+        }
+
+        .leftover-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .leftover-card.selected {
+            border-color: var(--success);
+            background: rgba(63, 185, 80, 0.05);
+        }
+
+        .leftover-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .leftover-name {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .leftover-bundle-id {
+            font-family: monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+
+        .leftover-hint {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .leftover-path {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: monospace;
+            margin-top: 4px;
+            word-break: break-all;
+        }
+
+        .leftover-size {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--danger);
+            white-space: nowrap;
+        }
+
+        .confidence-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .confidence-high {
+            background: rgba(63, 185, 80, 0.2);
+            color: var(--success);
+        }
+
+        .confidence-medium {
+            background: rgba(210, 153, 34, 0.2);
+            color: var(--warning);
+        }
+
+        .confidence-low {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--danger);
+        }
+
+        .source-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .leftovers-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .leftovers-stats {
+            display: flex;
+            gap: 24px;
+        }
+
+        .leftovers-stat {
+            text-align: center;
+        }
+
+        .leftovers-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .leftovers-stat-value.size {
+            color: var(--danger);
+        }
+
+        .leftovers-stat-value.count {
+            color: var(--accent);
+        }
+
+        .leftovers-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .leftovers-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
     </style>
 </head>
 
