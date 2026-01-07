@@ -57,6 +57,22 @@ class CacheLocation:
     exists: bool = False
 
 
+@dataclass
+class LeftoverItem:
+    """Represents a leftover file/folder from an uninstalled application."""
+    id: str
+    path: str
+    name: str                  # App name (inferred or from receipt)
+    bundle_id: str            # e.g., com.example.app
+    detection_source: str     # receipts, container, preferences, etc.
+    category: str             # Containers, Preferences, LaunchAgents, etc.
+    confidence: str           # high, medium, low
+    hint: str                 # Description of what this leftover is
+    size: int = 0
+    size_human: str = "0B"
+    selected: bool = False
+
+
 def get_home() -> str:
     return str(Path.home())
 
@@ -101,6 +117,466 @@ def get_directory_size(path: str) -> int:
     except:
         pass
     return total_size
+
+
+# ============================================================================
+# LEFTOVER DETECTION SYSTEM
+# ============================================================================
+
+# Global state for leftovers
+leftover_results = []
+leftover_scan_in_progress = False
+leftover_scan_complete = False
+leftover_scan_progress = {
+    "current": 0,
+    "total": 0,
+    "percent": 0,
+    "current_location": "",
+    "found_count": 0,
+    "total_size": 0
+}
+
+
+def parse_plist_bundle_id(plist_path: str) -> str:
+    """Extract CFBundleIdentifier from an Info.plist file."""
+    try:
+        result = subprocess.run(
+            ['defaults', 'read', plist_path, 'CFBundleIdentifier'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+    return ""
+
+
+def infer_app_name(bundle_id: str) -> str:
+    """Infer a human-readable app name from a bundle identifier."""
+    if not bundle_id:
+        return "Unknown App"
+    
+    # Split by dots and take the last meaningful part
+    parts = bundle_id.split('.')
+    if len(parts) >= 1:
+        # Get the last part, capitalize it, and clean up
+        name = parts[-1]
+        # Convert camelCase or PascalCase to spaces
+        import re
+        name = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
+        # Convert dashes/underscores to spaces
+        name = name.replace('-', ' ').replace('_', ' ')
+        # Capitalize words
+        return name.title()
+    return bundle_id
+
+
+def get_installed_bundle_ids() -> set:
+    """Get all bundle IDs from currently installed applications."""
+    bundle_ids = set()
+    
+    try:
+        # Method 1: Use mdfind to query Spotlight for all applications
+        result = subprocess.run(
+            ['mdfind', 'kMDItemContentType == "com.apple.application-bundle"'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            for app_path in result.stdout.strip().split('\n'):
+                if app_path and os.path.exists(app_path):
+                    plist_path = os.path.join(app_path, 'Contents', 'Info.plist')
+                    if os.path.exists(plist_path):
+                        bundle_id = parse_plist_bundle_id(plist_path)
+                        if bundle_id:
+                            bundle_ids.add(bundle_id.lower())
+    except:
+        pass
+    
+    # Method 2: Also scan /Applications directly as fallback
+    try:
+        apps_dir = Path('/Applications')
+        for app in apps_dir.glob('*.app'):
+            plist_path = app / 'Contents' / 'Info.plist'
+            if plist_path.exists():
+                bundle_id = parse_plist_bundle_id(str(plist_path))
+                if bundle_id:
+                    bundle_ids.add(bundle_id.lower())
+    except:
+        pass
+    
+    # Method 3: Also check user Applications
+    try:
+        user_apps = Path.home() / 'Applications'
+        if user_apps.exists():
+            for app in user_apps.glob('*.app'):
+                plist_path = app / 'Contents' / 'Info.plist'
+                if plist_path.exists():
+                    bundle_id = parse_plist_bundle_id(str(plist_path))
+                    if bundle_id:
+                        bundle_ids.add(bundle_id.lower())
+    except:
+        pass
+    
+    return bundle_ids
+
+
+def detect_container_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find containers for apps that are no longer installed."""
+    orphans = []
+    containers_path = Path.home() / 'Library' / 'Containers'
+    
+    if not containers_path.exists():
+        return orphans
+    
+    try:
+        for container in containers_path.iterdir():
+            if container.is_dir():
+                container_id = container.name.lower()
+                if container_id not in installed_ids:
+                    size = get_directory_size(str(container))
+                    if size > 0:  # Only include non-empty containers
+                        orphans.append(LeftoverItem(
+                            id=f"container_{container.name}",
+                            path=str(container),
+                            name=infer_app_name(container.name),
+                            bundle_id=container.name,
+                            detection_source="container_scan",
+                            category="Containers",
+                            confidence="high",
+                            hint=f"Sandboxed data container for '{infer_app_name(container.name)}'. This app appears to be uninstalled.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+    except:
+        pass
+    
+    return orphans
+
+
+def detect_group_container_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find group containers for apps that are no longer installed."""
+    orphans = []
+    group_containers_path = Path.home() / 'Library' / 'Group Containers'
+    
+    if not group_containers_path.exists():
+        return orphans
+    
+    try:
+        for container in group_containers_path.iterdir():
+            if container.is_dir():
+                # Group containers have format: TEAMID.com.example.group
+                container_id = container.name.lower()
+                # Extract bundle-like portion after team ID
+                parts = container.name.split('.', 1)
+                if len(parts) > 1:
+                    bundle_portion = parts[1].lower()
+                else:
+                    bundle_portion = container_id
+                
+                # Check if any installed app matches this group container
+                is_orphan = True
+                for installed_id in installed_ids:
+                    if installed_id in container_id or bundle_portion in installed_id:
+                        is_orphan = False
+                        break
+                
+                if is_orphan:
+                    size = get_directory_size(str(container))
+                    if size > 0:
+                        orphans.append(LeftoverItem(
+                            id=f"group_container_{container.name}",
+                            path=str(container),
+                            name=infer_app_name(container.name),
+                            bundle_id=container.name,
+                            detection_source="group_container_scan",
+                            category="Group Containers",
+                            confidence="high",
+                            hint=f"Shared data container for '{infer_app_name(container.name)}'. No matching app found.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+    except:
+        pass
+    
+    return orphans
+
+
+def detect_preference_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find preference files for apps that are no longer installed."""
+    orphans = []
+    prefs_path = Path.home() / 'Library' / 'Preferences'
+    
+    if not prefs_path.exists():
+        return orphans
+    
+    # Known system/Apple preferences to skip
+    skip_prefixes = ['com.apple.', 'org.python.', 'com.github.', 'loginwindow',
+                     'pbs', 'systemsoundserverd', 'ContextStoreAgent', 'NSGlobalDomain']
+    
+    try:
+        for pref_file in prefs_path.glob('*.plist'):
+            if pref_file.is_file():
+                pref_name = pref_file.stem.lower()
+                
+                # Skip known system preferences
+                if any(pref_name.startswith(prefix.lower()) for prefix in skip_prefixes):
+                    continue
+                
+                # Check if this preference belongs to an installed app
+                is_orphan = True
+                for installed_id in installed_ids:
+                    if pref_name == installed_id or pref_name.startswith(installed_id):
+                        is_orphan = False
+                        break
+                    if installed_id in pref_name:
+                        is_orphan = False
+                        break
+                
+                if is_orphan:
+                    size = pref_file.stat().st_size
+                    if size > 0:
+                        orphans.append(LeftoverItem(
+                            id=f"pref_{pref_file.stem}",
+                            path=str(pref_file),
+                            name=infer_app_name(pref_file.stem),
+                            bundle_id=pref_file.stem,
+                            detection_source="preferences_scan",
+                            category="Preferences",
+                            confidence="medium",
+                            hint=f"Preference file for '{infer_app_name(pref_file.stem)}'. No matching app installed.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+    except:
+        pass
+    
+    return orphans
+
+
+def detect_app_support_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find Application Support folders for apps that are no longer installed."""
+    orphans = []
+    app_support_path = Path.home() / 'Library' / 'Application Support'
+    
+    if not app_support_path.exists():
+        return orphans
+    
+    # Known system/essential folders to skip
+    skip_folders = ['AddressBook', 'AppStore', 'CallHistoryDB', 'CloudDocs',
+                    'CrashReporter', 'Dock', 'FileProvider', 'iCloud', 'icdd',
+                    'Knowledge', 'MobileSync', 'NotificationCenter', 'Quick Look',
+                    'Spotlight', 'com.apple.', 'Apple', 'SyncServices', 'CoreData']
+    
+    try:
+        for folder in app_support_path.iterdir():
+            if folder.is_dir():
+                folder_name = folder.name.lower()
+                
+                # Skip known system folders
+                if any(folder_name.startswith(skip.lower()) or folder_name == skip.lower() 
+                       for skip in skip_folders):
+                    continue
+                
+                # Check if this folder belongs to an installed app
+                is_orphan = True
+                for installed_id in installed_ids:
+                    # Match by last portion of bundle ID or folder name
+                    installed_parts = installed_id.split('.')
+                    if folder_name in installed_id or installed_id in folder_name:
+                        is_orphan = False
+                        break
+                    if any(part.lower() == folder_name for part in installed_parts):
+                        is_orphan = False
+                        break
+                
+                if is_orphan:
+                    size = get_directory_size(str(folder))
+                    if size > 1024:  # Only include folders > 1KB
+                        orphans.append(LeftoverItem(
+                            id=f"appsupport_{folder.name}",
+                            path=str(folder),
+                            name=folder.name,
+                            bundle_id=f"*.{folder.name}",
+                            detection_source="app_support_scan",
+                            category="Application Support",
+                            confidence="medium",
+                            hint=f"Application Support folder for '{folder.name}'. No matching app installed.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+    except:
+        pass
+    
+    return orphans
+
+
+def detect_launch_agent_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find Launch Agents for apps that are no longer installed."""
+    orphans = []
+    
+    # Check both user and system launch agents
+    launch_agent_paths = [
+        Path.home() / 'Library' / 'LaunchAgents',
+        Path('/Library/LaunchAgents'),
+    ]
+    
+    # Known system launch agents to skip
+    skip_prefixes = ['com.apple.', 'com.openssh', 'bootcamp', 'org.gpgtools']
+    
+    for launch_path in launch_agent_paths:
+        if not launch_path.exists():
+            continue
+        
+        try:
+            for plist_file in launch_path.glob('*.plist'):
+                if plist_file.is_file():
+                    plist_name = plist_file.stem.lower()
+                    
+                    # Skip known system agents
+                    if any(plist_name.startswith(prefix.lower()) for prefix in skip_prefixes):
+                        continue
+                    
+                    # Check if this launch agent belongs to an installed app
+                    is_orphan = True
+                    for installed_id in installed_ids:
+                        if plist_name == installed_id or installed_id in plist_name:
+                            is_orphan = False
+                            break
+                        if plist_name in installed_id:
+                            is_orphan = False
+                            break
+                    
+                    if is_orphan:
+                        size = plist_file.stat().st_size
+                        orphans.append(LeftoverItem(
+                            id=f"launchagent_{plist_file.stem}",
+                            path=str(plist_file),
+                            name=infer_app_name(plist_file.stem),
+                            bundle_id=plist_file.stem,
+                            detection_source="launch_agent_scan",
+                            category="Launch Agents",
+                            confidence="high",
+                            hint=f"Background agent for '{infer_app_name(plist_file.stem)}'. The associated app is not installed.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+        except:
+            pass
+    
+    return orphans
+
+
+def detect_cache_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find cache folders for apps that are no longer installed."""
+    orphans = []
+    caches_path = Path.home() / 'Library' / 'Caches'
+    
+    if not caches_path.exists():
+        return orphans
+    
+    # Known system caches to skip
+    skip_prefixes = ['com.apple.', 'CloudKit', 'GeoServices', 'PassKit',
+                     'com.crashlytics', 'google', 'org.swift']
+    
+    try:
+        for cache_folder in caches_path.iterdir():
+            if cache_folder.is_dir():
+                cache_name = cache_folder.name.lower()
+                
+                # Skip known system caches
+                if any(cache_name.startswith(prefix.lower()) for prefix in skip_prefixes):
+                    continue
+                
+                # Check if this cache belongs to an installed app
+                is_orphan = True
+                for installed_id in installed_ids:
+                    if cache_name == installed_id or installed_id in cache_name:
+                        is_orphan = False
+                        break
+                    if cache_name in installed_id:
+                        is_orphan = False
+                        break
+                
+                if is_orphan:
+                    size = get_directory_size(str(cache_folder))
+                    if size > 10240:  # Only include caches > 10KB
+                        orphans.append(LeftoverItem(
+                            id=f"cache_{cache_folder.name}",
+                            path=str(cache_folder),
+                            name=infer_app_name(cache_folder.name),
+                            bundle_id=cache_folder.name,
+                            detection_source="cache_scan",
+                            category="Caches",
+                            confidence="medium",
+                            hint=f"Cache folder for '{infer_app_name(cache_folder.name)}'. No matching app installed.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=True
+                        ))
+    except:
+        pass
+    
+    return orphans
+
+
+def detect_logs_orphans(installed_ids: set) -> List[LeftoverItem]:
+    """Find log folders for apps that are no longer installed."""
+    orphans = []
+    logs_path = Path.home() / 'Library' / 'Logs'
+    
+    if not logs_path.exists():
+        return orphans
+    
+    # Known system logs to skip
+    skip_folders = ['DiagnosticReports', 'com.apple.', 'CoreSimulator', 'Homebrew']
+    
+    try:
+        for log_folder in logs_path.iterdir():
+            if log_folder.is_dir():
+                log_name = log_folder.name.lower()
+                
+                # Skip known system logs
+                if any(log_name.startswith(skip.lower()) or log_name == skip.lower()
+                       for skip in skip_folders):
+                    continue
+                
+                # Check if this log folder belongs to an installed app
+                is_orphan = True
+                for installed_id in installed_ids:
+                    if log_name in installed_id or installed_id in log_name:
+                        is_orphan = False
+                        break
+                    installed_parts = installed_id.split('.')
+                    if any(part.lower() == log_name for part in installed_parts):
+                        is_orphan = False
+                        break
+                
+                if is_orphan:
+                    size = get_directory_size(str(log_folder))
+                    if size > 1024:  # Only include logs > 1KB
+                        orphans.append(LeftoverItem(
+                            id=f"logs_{log_folder.name}",
+                            path=str(log_folder),
+                            name=log_folder.name,
+                            bundle_id=f"*.{log_folder.name}",
+                            detection_source="logs_scan",
+                            category="Logs",
+                            confidence="low",
+                            hint=f"Log folder for '{log_folder.name}'. No matching app installed. Low confidence - verify before removing.",
+                            size=size,
+                            size_human=human_readable_size(size),
+                            selected=False  # Don't auto-select low confidence items
+                        ))
+    except:
+        pass
+    
+    return orphans
 
 
 def get_cache_locations() -> List[CacheLocation]:
