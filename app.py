@@ -975,6 +975,168 @@ def clean_locations():
     return jsonify({"results": results})
 
 
+# ============================================================================
+# LEFTOVER SCANNING ENDPOINTS
+# ============================================================================
+
+@app.route('/api/scan/leftovers', methods=['POST'])
+def start_leftover_scan():
+    """Start scanning for uninstalled application leftovers."""
+    global leftover_results, leftover_scan_in_progress, leftover_scan_complete, leftover_scan_progress
+    
+    if leftover_scan_in_progress:
+        return jsonify({"status": "already_scanning"})
+    
+    leftover_scan_in_progress = True
+    leftover_scan_complete = False
+    leftover_results = []
+    leftover_scan_progress = {
+        "current": 0, "total": 7, "percent": 0,
+        "current_location": "Initializing...",
+        "found_count": 0, "total_size": 0
+    }
+    
+    def do_leftover_scan():
+        global leftover_results, leftover_scan_in_progress, leftover_scan_complete, leftover_scan_progress
+        
+        results = []
+        
+        # Step 1: Get installed bundle IDs
+        leftover_scan_progress["current_location"] = "Scanning installed applications..."
+        leftover_scan_progress["current"] = 1
+        leftover_scan_progress["percent"] = 10
+        
+        installed_ids = get_installed_bundle_ids()
+        
+        # Step 2: Scan Containers
+        leftover_scan_progress["current_location"] = "Scanning Containers..."
+        leftover_scan_progress["current"] = 2
+        leftover_scan_progress["percent"] = 25
+        results.extend(detect_container_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Step 3: Scan Group Containers
+        leftover_scan_progress["current_location"] = "Scanning Group Containers..."
+        leftover_scan_progress["current"] = 3
+        leftover_scan_progress["percent"] = 40
+        results.extend(detect_group_container_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Step 4: Scan Application Support
+        leftover_scan_progress["current_location"] = "Scanning Application Support..."
+        leftover_scan_progress["current"] = 4
+        leftover_scan_progress["percent"] = 55
+        results.extend(detect_app_support_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Step 5: Scan Preferences
+        leftover_scan_progress["current_location"] = "Scanning Preferences..."
+        leftover_scan_progress["current"] = 5
+        leftover_scan_progress["percent"] = 70
+        results.extend(detect_preference_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Step 6: Scan Launch Agents
+        leftover_scan_progress["current_location"] = "Scanning Launch Agents..."
+        leftover_scan_progress["current"] = 6
+        leftover_scan_progress["percent"] = 85
+        results.extend(detect_launch_agent_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Step 7: Scan Caches (orphan caches only)
+        leftover_scan_progress["current_location"] = "Scanning Orphan Caches..."
+        leftover_scan_progress["current"] = 7
+        leftover_scan_progress["percent"] = 95
+        results.extend(detect_cache_orphans(installed_ids))
+        leftover_scan_progress["found_count"] = len(results)
+        leftover_scan_progress["total_size"] = sum(r.size for r in results)
+        
+        # Done
+        leftover_scan_progress["percent"] = 100
+        leftover_scan_progress["current_location"] = "Complete"
+        
+        # Sort by size (largest first)
+        results.sort(key=lambda x: x.size, reverse=True)
+        
+        leftover_results = results
+        leftover_scan_in_progress = False
+        leftover_scan_complete = True
+    
+    thread = threading.Thread(target=do_leftover_scan)
+    thread.start()
+    
+    return jsonify({"status": "started"})
+
+
+@app.route('/api/scan/leftovers/status')
+def leftover_scan_status():
+    """Get the status of the leftover scan."""
+    return jsonify({
+        "in_progress": leftover_scan_in_progress,
+        "complete": leftover_scan_complete,
+        "count": len(leftover_results),
+        "current_location": leftover_scan_progress.get("current_location", ""),
+        "progress": leftover_scan_progress
+    })
+
+
+@app.route('/api/leftovers')
+def get_leftovers():
+    """Return detected leftover items."""
+    return jsonify([asdict(item) for item in leftover_results])
+
+
+@app.route('/api/clean/leftovers', methods=['POST'])
+def clean_leftovers():
+    """Clean selected leftover items."""
+    data = request.json
+    ids_to_clean = data.get('ids', [])
+    
+    results = []
+    for item in leftover_results:
+        if item.id in ids_to_clean:
+            success = False
+            message = ""
+            try:
+                path = Path(item.path)
+                if path.is_dir():
+                    shutil.rmtree(path)
+                    success = True
+                    message = "Deleted folder"
+                elif path.is_file():
+                    path.unlink()
+                    success = True
+                    message = "Deleted file"
+            except PermissionError:
+                message = "Permission denied"
+            except Exception as e:
+                message = str(e)
+            
+            results.append({
+                "id": item.id,
+                "name": item.name,
+                "success": success,
+                "message": message
+            })
+    
+    return jsonify({"results": results})
+
+
+@app.route('/api/installed-apps')
+def get_installed_apps_list():
+    """Return list of currently installed application bundle IDs (for debugging)."""
+    bundle_ids = get_installed_bundle_ids()
+    return jsonify({
+        "count": len(bundle_ids),
+        "bundle_ids": sorted(list(bundle_ids))
+    })
+
+
 # System monitoring endpoints
 @app.route('/api/system/stats')
 def system_stats():
