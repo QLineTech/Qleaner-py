@@ -1136,6 +1136,45 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Leftovers Tab -->
+            <div class="tab-content" id="tab-leftovers">
+                <div class="leftovers-header">
+                    <div class="controls" style="margin-bottom: 0;">
+                        <button class="btn btn-primary" id="scanLeftoversBtn" onclick="startLeftoverScan()">
+                            <span>🔍</span> Scan for Leftovers
+                        </button>
+                        <button class="btn btn-secondary" onclick="selectAllLeftovers()">Select All</button>
+                        <button class="btn btn-secondary" onclick="selectNoneLeftovers()">Select None</button>
+                        <button class="btn btn-danger" id="cleanLeftoversBtn" onclick="cleanSelectedLeftovers()"
+                            disabled>
+                            <span>🗑️</span> Clean Selected
+                        </button>
+                    </div>
+                    <div class="leftovers-stats">
+                        <div class="leftovers-stat">
+                            <div class="leftovers-stat-value count" id="leftoverCount">0</div>
+                            <div class="leftovers-stat-label">Items Found</div>
+                        </div>
+                        <div class="leftovers-stat">
+                            <div class="leftovers-stat-value size" id="leftoverSize">0 B</div>
+                            <div class="leftovers-stat-label">Total Size</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="category-filters" id="leftoverCategoryFilters"></div>
+
+                <div class="leftovers-grid" id="leftoversGrid">
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12z" />
+                        </svg>
+                        <h3>Click "Scan for Leftovers" to start</h3>
+                        <p>We'll find leftover files from uninstalled applications</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Cleaner Section -->
@@ -1449,6 +1488,149 @@
             hideProgress();
             showToast(`Cleaned ${successCount} of ${selected.length} locations`);
             startScan();
+        }
+
+        // =====================================================================
+        // LEFTOVER SCANNING FUNCTIONS
+        // =====================================================================
+
+        let leftovers = [];
+        let activeLeftoverCategory = 'all';
+
+        async function startLeftoverScan() {
+            showProgress('Scanning for Leftovers...', 'Analyzing installed applications');
+            document.getElementById('scanLeftoversBtn').disabled = true;
+
+            await fetch('/api/scan/leftovers', { method: 'POST' });
+
+            const poll = async () => {
+                const res = await fetch('/api/scan/leftovers/status');
+                const data = await res.json();
+
+                document.getElementById('progressSub').textContent = data.current_location || 'Scanning...';
+
+                if (data.complete) {
+                    await loadLeftovers();
+                    hideProgress();
+                    document.getElementById('scanLeftoversBtn').disabled = false;
+                    showToast(`Found ${leftovers.length} leftover items from uninstalled apps`);
+                } else {
+                    setTimeout(poll, 500);
+                }
+            };
+            poll();
+        }
+
+        async function loadLeftovers() {
+            const res = await fetch('/api/leftovers');
+            leftovers = await res.json();
+            renderLeftoverCategories();
+            renderLeftovers();
+            updateLeftoverStats();
+        }
+
+        function renderLeftoverCategories() {
+            const categories = ['all', ...new Set(leftovers.map(l => l.category))];
+            document.getElementById('leftoverCategoryFilters').innerHTML = categories.map(cat => `
+                <button class="category-btn ${cat === activeLeftoverCategory ? 'active' : ''}" onclick="filterLeftoverCategory('${cat}')">
+                    ${cat === 'all' ? 'All' : cat}
+                </button>
+            `).join('');
+        }
+
+        function filterLeftoverCategory(category) {
+            activeLeftoverCategory = category;
+            renderLeftoverCategories();
+            renderLeftovers();
+        }
+
+        function renderLeftovers() {
+            const container = document.getElementById('leftoversGrid');
+            const filtered = activeLeftoverCategory === 'all' ? leftovers : leftovers.filter(l => l.category === activeLeftoverCategory);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        <h3>${leftovers.length === 0 ? 'No leftovers found!' : 'No items in this category'}</h3>
+                        <p>${leftovers.length === 0 ? 'Your system is clean or click scan to detect leftovers' : 'Try a different category'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => `
+                <div class="leftover-card ${item.selected ? 'selected' : ''}" data-id="${item.id}">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleLeftover('${item.id}')">
+                        <div class="checkbox-custom"></div>
+                    </label>
+                    <div class="leftover-info">
+                        <div class="leftover-name">
+                            ${item.name}
+                            <span class="confidence-badge confidence-${item.confidence}">${item.confidence}</span>
+                            <span class="source-badge">${item.category}</span>
+                        </div>
+                        <div class="leftover-bundle-id">${item.bundle_id}</div>
+                        <div class="leftover-hint">${item.hint}</div>
+                        <div class="leftover-path">${item.path.replace(/\/Users\/[^/]+/, '~')}</div>
+                    </div>
+                    <div class="leftover-size">${item.size_human}</div>
+                </div>
+            `).join('');
+        }
+
+        function toggleLeftover(id) {
+            const item = leftovers.find(l => l.id === id);
+            if (item) {
+                item.selected = !item.selected;
+                renderLeftovers();
+                updateLeftoverStats();
+            }
+        }
+
+        function selectAllLeftovers() {
+            leftovers.forEach(l => l.selected = true);
+            renderLeftovers();
+            updateLeftoverStats();
+        }
+
+        function selectNoneLeftovers() {
+            leftovers.forEach(l => l.selected = false);
+            renderLeftovers();
+            updateLeftoverStats();
+        }
+
+        function updateLeftoverStats() {
+            const selected = leftovers.filter(l => l.selected);
+            document.getElementById('leftoverCount').textContent = leftovers.length;
+            document.getElementById('leftoverSize').textContent = humanSize(selected.reduce((sum, l) => sum + l.size, 0));
+            document.getElementById('cleanLeftoversBtn').disabled = selected.length === 0;
+        }
+
+        async function cleanSelectedLeftovers() {
+            const selected = leftovers.filter(l => l.selected);
+            if (selected.length === 0) return;
+
+            const totalSize = humanSize(selected.reduce((sum, l) => sum + l.size, 0));
+            if (!confirm(`This will permanently delete ${selected.length} leftover items (${totalSize}).\n\n⚠️ Make sure these are from apps you have uninstalled!\n\nAre you sure?`)) return;
+
+            showProgress('Cleaning Leftovers...', 'Removing selected leftover files');
+
+            const res = await fetch('/api/clean/leftovers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selected.map(l => l.id) })
+            });
+
+            const data = await res.json();
+            const successCount = data.results.filter(r => r.success).length;
+
+            hideProgress();
+            showToast(`Cleaned ${successCount} of ${selected.length} leftover items`);
+            startLeftoverScan();
         }
     </script>
 </body>
